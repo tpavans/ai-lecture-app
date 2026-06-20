@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090d16;
+  --foreground: #f8fafc;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Dyslexia Assistance Typography settings */
+.font-dyslexic {
+  font-family: 'Comic Sans MS', 'Courier New', sans-serif !important;
+  letter-spacing: 0.16em !important;
+  word-spacing: 0.32em !important;
+  line-height: 1.95 !important;
+}
+
+.font-dyslexic p, 
+.font-dyslexic span, 
+.font-dyslexic li, 
+.font-dyslexic h1,
+.font-dyslexic h2,
+.font-dyslexic h3,
+.font-dyslexic h4,
+.font-dyslexic button,
+.font-dyslexic textarea,
+.font-dyslexic input {
+  font-family: 'Comic Sans MS', 'Courier New', sans-serif !important;
+}
+
+/* High Contrast mode specifications */
+.high-contrast {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  background-image: none !important;
+}
+
+.high-contrast * {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.high-contrast button,
+.high-contrast a,
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  border: 2px solid #ffffff !important;
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+.high-contrast button:hover,
+.high-contrast a:hover {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Custom animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 12s linear infinite;
+}

@@ -1,0 +1,20 @@
+# Next.js Frontend Ignores
+access-ai-frontend/node_modules/
+access-ai-frontend/.next/
+access-ai-frontend/out/
+access-ai-frontend/build/
+access-ai-frontend/.env*.local
+
+# Python Backend Ignores
+access-ai-backend/__pycache__/
+access-ai-backend/*.pyc
+access-ai-backend/.venv/
+access-ai-backend/venv/
+access-ai-backend/.env
+
+# General OS & IDE Ignores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
