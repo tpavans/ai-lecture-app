@@ -13,7 +13,7 @@ interface TranscriptSegment {
 }
 
 export default function LiveClassroom() {
-  const { settings, speak, stopSpeaking } = useAccessibility();
+  const { settings, speak, stopSpeaking, voiceCommand } = useAccessibility();
   
   // Navigation & UI tabs
   const [activeTab, setActiveTab] = useState<"live" | "notes" | "history">("live");
@@ -38,6 +38,110 @@ export default function LiveClassroom() {
   const [isFlipped, setIsFlipped] = useState(false);
 
   const recognitionRef = useRef<any>(null);
+
+  // Lecture playback states for blind students
+  const [playbackActive, setPlaybackActive] = useState(false);
+  const [playbackIndex, setPlaybackIndex] = useState(0);
+  const playbackActiveRef = useRef(false);
+
+  const speakSegment = (index: number) => {
+    if (index < 0 || index >= segments.length) {
+      setPlaybackActive(false);
+      playbackActiveRef.current = false;
+      speak("End of lecture playback.");
+      return;
+    }
+    
+    setPlaybackIndex(index);
+    const seg = segments[index];
+    const textToSpeak = seg.translated_text || seg.text;
+    
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = settings.speechRate;
+    
+    utterance.onend = () => {
+      if (playbackActiveRef.current) {
+        setTimeout(() => {
+          if (playbackActiveRef.current) {
+            speakSegment(index + 1);
+          }
+        }, 1200); // 1.2 second natural pause
+      }
+    };
+
+    utterance.onerror = () => {
+      setPlaybackActive(false);
+      playbackActiveRef.current = false;
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Listen to voice commands dynamically
+  useEffect(() => {
+    if (!voiceCommand) return;
+    const cmd = voiceCommand.toLowerCase();
+
+    if (cmd.includes("play today's lecture") || cmd.includes("play lecture") || cmd.includes("play previous lecture")) {
+      if (segments.length === 0) {
+        speak("There are no segments in today's lecture transcript to play.");
+        return;
+      }
+      speak("Starting lecture playback.");
+      setPlaybackActive(true);
+      playbackActiveRef.current = true;
+      setTimeout(() => {
+        speakSegment(0);
+      }, 1500);
+    } else if (cmd.includes("pause lecture") || cmd.includes("pause") || cmd.includes("stop speaking")) {
+      setPlaybackActive(false);
+      playbackActiveRef.current = false;
+      window.speechSynthesis.cancel();
+      speak("Lecture playback paused.");
+    } else if (cmd.includes("resume lecture") || cmd.includes("resume") || cmd.includes("continue")) {
+      if (segments.length === 0) return;
+      speak("Resuming lecture.");
+      setPlaybackActive(true);
+      playbackActiveRef.current = true;
+      setTimeout(() => {
+        speakSegment(playbackIndex);
+      }, 1200);
+    } else if (cmd.includes("repeat") || cmd.includes("repeat segment")) {
+      if (segments.length === 0) return;
+      speak("Repeating segment.");
+      speakSegment(playbackIndex);
+    } else if (cmd.includes("next topic") || cmd.includes("next segment") || cmd.includes("skip")) {
+      if (playbackIndex < segments.length - 1) {
+        speak("Skipping to next segment.");
+        speakSegment(playbackIndex + 1);
+      } else {
+        speak("No more segments to skip.");
+      }
+    } else if (cmd.includes("previous topic") || cmd.includes("previous segment")) {
+      if (playbackIndex > 0) {
+        speak("Skipping to previous segment.");
+        speakSegment(playbackIndex - 1);
+      } else {
+        speak("Already at first segment.");
+      }
+    } else if (cmd.includes("read from message")) {
+      const numMatch = cmd.match(/read from message (\d+)/);
+      if (numMatch && numMatch[1]) {
+        const targetIdx = parseInt(numMatch[1], 10) - 1;
+        if (targetIdx >= 0 && targetIdx < segments.length) {
+          speak(`Reading from segment ${targetIdx + 1}`);
+          setPlaybackActive(true);
+          playbackActiveRef.current = true;
+          setTimeout(() => {
+            speakSegment(targetIdx);
+          }, 1500);
+        } else {
+          speak(`Segment number ${numMatch[1]} does not exist.`);
+        }
+      }
+    }
+  }, [voiceCommand, segments]);
 
   // Initialize Speech Recognition for Live Classroom
   useEffect(() => {
@@ -442,6 +546,49 @@ export default function LiveClassroom() {
               </div>
             </div>
 
+            {/* Audio Lecture Playback Deck for Blind/Accessibility users */}
+            {segments.length > 0 && (
+              <div className="bg-violet-950/20 border border-violet-800/30 rounded-xl p-3.5 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${playbackActive ? "bg-violet-400 animate-pulse" : "bg-white/20"}`} />
+                  <span className="text-xs font-semibold text-violet-300">
+                    {playbackActive ? `Audio Playback Active: Segment ${playbackIndex + 1} of ${segments.length}` : "Audio Playback Deck Ready"}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (playbackActive) {
+                        setPlaybackActive(false);
+                        playbackActiveRef.current = false;
+                        window.speechSynthesis.cancel();
+                        speak("Playback paused.");
+                      } else {
+                        setPlaybackActive(true);
+                        playbackActiveRef.current = true;
+                        speakSegment(playbackIndex);
+                      }
+                    }}
+                    className="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg text-[10px] font-bold text-white transition-all"
+                  >
+                    {playbackActive ? "Pause Audio" : "Play Lecture"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPlaybackActive(false);
+                      playbackActiveRef.current = false;
+                      window.speechSynthesis.cancel();
+                      setPlaybackIndex(0);
+                      speak("Playback reset.");
+                    }}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] text-white"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Bubble stream list */}
             <div className="flex-1 overflow-y-auto space-y-4 pr-2">
               {segments.length === 0 ? (
@@ -451,28 +598,31 @@ export default function LiveClassroom() {
                   <p className="text-xs max-w-sm mt-1">Every spoken sentence will appear continuously as chat bubbles and get translated instantly.</p>
                 </div>
               ) : (
-                segments.map((seg, i) => (
-                  <div key={i} className="flex gap-3 items-start animate-fade-in">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2.5" />
-                    <div className="flex-1 bg-white/5 border border-white/5 p-4 rounded-xl">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Teacher Segment</span>
-                        <span className="text-[9px] text-white/30 font-semibold flex items-center gap-1">
-                          <Clock size={10} />
-                          {seg.timestamp}
-                        </span>
-                      </div>
-                      <div className="text-sm text-white/90 leading-relaxed font-medium">{seg.text}</div>
-                      
-                      {seg.translated_text && seg.translated_text !== seg.text && (
-                        <div className="mt-2.5 pt-2 border-t border-white/5 text-xs text-slate-300 italic flex items-center gap-1.5">
-                          <Languages size={12} className="text-violet-400" />
-                          <span>{seg.translated_text}</span>
+                segments.map((seg, i) => {
+                  const isActivePlayback = playbackActive && i === playbackIndex;
+                  return (
+                    <div key={i} className={`flex gap-3 items-start animate-fade-in transition-all ${isActivePlayback ? "scale-[1.01]" : ""}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full mt-2.5 transition-colors ${isActivePlayback ? "bg-violet-400 animate-ping" : "bg-emerald-500"}`} />
+                      <div className={`flex-1 p-4 rounded-xl border transition-all ${isActivePlayback ? "bg-violet-950/20 border-violet-500 shadow-[0_0_15px_rgba(139,92,246,0.15)]" : "bg-white/5 border-white/5"}`}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${isActivePlayback ? "text-violet-400" : "text-emerald-400"}`}>Teacher Segment {i + 1}</span>
+                          <span className="text-[9px] text-white/30 font-semibold flex items-center gap-1">
+                            <Clock size={10} />
+                            {seg.timestamp}
+                          </span>
                         </div>
-                      )}
+                        <div className="text-sm text-white/90 leading-relaxed font-medium">{seg.text}</div>
+                        
+                        {seg.translated_text && seg.translated_text !== seg.text && (
+                          <div className="mt-2.5 pt-2 border-t border-white/5 text-xs text-slate-300 italic flex items-center gap-1.5">
+                            <Languages size={12} className="text-violet-400" />
+                            <span>{seg.translated_text}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
